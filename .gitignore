@@ -1,0 +1,35 @@
+# Environment and secrets
+.env
+*.env
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+backend/venv/
+
+# Runtime uploads and generated images
+backend/uploads/
+backend/outputs/
+
+# Logs
+*.log
+backend/server*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Temporary files
+*.tmp
+*.temp

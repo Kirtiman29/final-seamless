@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seamless Pattern Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       CSS CUSTOM PROPERTIES — Design tokens
+    ============================================================ */
+    :root {
+      --green-50:  #f0fdf4;
+      --green-100: #dcfce7;
+      --green-200: #bbf7d0;
+      --green-400: #4ade80;
+      --green-500: #22c55e;
+      --green-600: #16a34a;
+      --green-700: #15803d;
+
+      --gray-50:  #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+
+      --white: #ffffff;
+      --red-500: #ef4444;
+      --red-50:  #fef2f2;
+      --amber-500: #f59e0b;
+
+      --shadow-sm:  0 1px 2px rgba(0,0,0,.06);
+      --shadow-md:  0 4px 12px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.06);
+      --shadow-lg:  0 10px 32px rgba(0,0,0,.1),  0 2px 8px rgba(0,0,0,.06);
+      --shadow-xl:  0 20px 60px rgba(0,0,0,.12), 0 4px 16px rgba(0,0,0,.08);
+
+      --radius-sm:  6px;
+      --radius-md:  12px;
+      --radius-lg:  18px;
+      --radius-xl:  24px;
+      --radius-pill: 999px;
+
+      --transition-fast:   150ms cubic-bezier(.4,0,.2,1);
+      --transition-normal: 250ms cubic-bezier(.4,0,.2,1);
+      --transition-slow:   400ms cubic-bezier(.4,0,.2,1);
+
+      --font-display: 'DM Serif Display', Georgia, serif;
+      --font-body:    'DM Sans', system-ui, sans-serif;
+    }
+
+    /* ============================================================
+       RESET & BASE
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--gray-800);
+      background: var(--gray-50);
+      min-height: 100vh;
+    }
+
+    img { display: block; max-width: 100%; }
+    button { cursor: pointer; font-family: inherit; }
+    a { color: inherit; }
+
+    /* ============================================================
+       LAYOUT UTILITIES
+    ============================================================ */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .card {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* ============================================================
+       BACKGROUND DECORATION
+    ============================================================ */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 40% at 10% -10%, rgba(34,197,94,.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 110%,  rgba(74,222,128,.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body > * { position: relative; z-index: 1; }
+
+    /* ============================================================
+       HEADER
+    ============================================================ */
+    .site-header {
+      background: rgba(255,255,255,.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--gray-200);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      gap: 16px;
+    }
+
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--green-500), var(--green-600));
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(22,163,74,.3);
+      flex-shrink: 0;
+    }
+
+    .logo-icon svg { width: 20px; height: 20px; color: var(--white); }
+
+    .logo-text h1 {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 400;
+      color: var(--gray-900);
+      line-height: 1.2;
+      letter-spacing: -.01em;
+    }
+
+    .logo-text p {
+      font-size: 0.75rem;
+      color: var(--gray-500);
+      font-weight: 400;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--green-50);
+      border: 1px solid var(--green-200);
+      color: var(--green-700);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+    }
+
+    .header-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--green-500);
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .5; transform: scale(.8); }
+    }
+
+    /* ============================================================
+       HERO / PAGE INTRO
+    ============================================================ */
+    .page-hero {
+      padding: 56px 0 40px;
+      text-align: center;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--green-600);
+      margin-bottom: 16px;
+    }
+
+    .hero-eyebrow span {
+      display: inline-block;
+      width: 24px; height: 1px;
+      background: var(--green-400);
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 400;
+      color: var(--gray-900);
+      line-height: 1.15;
+      letter-spacing: -.02em;
+      margin-bottom: 14px;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--green-600);
+    }
+
+    .hero-subtitle {
+      font-size: 1.05rem;
+      color: var(--gray-500);
+      max-width: 520px;
+      margin: 0 auto;
+      font-weight: 400;
+    }
+
+    /* ============================================================
+       MAIN WORKSPACE
+    ============================================================ */
+    .workspace {
+      padding-bottom: 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ============================================================
+       UPLOAD SECTION
+    ============================================================ */
+    .upload-card {
+      padding: 32px;
+    }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      margin-bottom: 20px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gray-200);
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed var(--gray-300);
+      border-radius: var(--radius-lg);
+      padding: 56px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition:
+        border-color var(--transition-normal),
+        background  var(--transition-normal),
+        transform   var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+      background: var(--gray-50);
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--green-400);
+      background: var(--green-50);
+    }
+
+    .drop-zone.drag-over { transform: scale(1.005); }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      width: 64px; height: 64px;
+      background: var(--white);
+      border: 1.5px solid var(--gray-200);
+      border-radius: var(--radius-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow var(--transition-normal), border-color var(--transition-normal);
+    }
+
+    .drop-zone:hover .drop-icon,
+    .drop-zone.drag-over .drop-icon {
+      border-color: var(--green-300);
+      box-shadow: 0 0 0 4px var(--green-100), var(--shadow-sm);
+    }
+
+    .drop-icon svg { width: 28px; height: 28px; color: var(--green-500); }
+
+    .drop-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin-bottom: 6px;
+    }
+
+    .drop-title span {
+      color: var(--green-600);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .drop-meta {
+      font-size: 0.8rem;
+      color: var(--gray-400);
+    }
+
+    .format-chips {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-pill);
+      padding: 2px 10px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      color: var(--gray-500);
+    }
+
+    /* File info bar */
+    .file-info-bar {
+      display: none;
+      align-items: center;
+      gap: 14px;
+      background: var(--green-50);
+      border: 1px solid var(--green-200);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      margin-top: 16px;
+      animation: slide-in var(--transition-normal) ease both;
+    }
+
+    .file-info-bar.visible { display: flex; }
+
+    .file-thumb {
+      width: 52px; height: 52px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      border: 1px solid var(--green-200);
+      flex-shrink: 0;
+    }
+
+    .file-details { flex: 1; min-width: 0; }
+
+    .file-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--gray-800);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-meta-row {
+      font-size: 0.75rem;
+      color: var(--gray-500);
+      margin-top: 2px;
+    }
+
+    .file-check {
+      width: 28px; height: 28px;
+      background: var(--green-500);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .file-check svg { width: 14px; height: 14px; color: var(--white); }
+
+    .remove-file-btn {
+      background: none;
+      border: none;
+      color: var(--gray-400);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .remove-file-btn:hover { color: var(--red-500); background: var(--red-50); }
+    .remove-file-btn svg { width: 16px; height: 16px; }
+
+    /* ============================================================
+       CONTROLS
+    ============================================================ */
+    .controls-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 20px 32px;
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: var(--radius-pill);
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      transition:
+        background     var(--transition-fast),
+        color          var(--transition-fast),
+        box-shadow     var(--transition-fast),
+        transform      var(--transition-fast),
+        opacity        var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* Primary green button */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--green-500), var(--green-600));
+      color: var(--white);
+      box-shadow: 0 2px 8px rgba(22,163,74,.25), 0 1px 2px rgba(0,0,0,.1);
+      padding: 11px 28px;
+    }
+
+    .btn-primary:not(:disabled):hover {
+      background: linear-gradient(135deg, var(--green-400), var(--green-500));
+      box-shadow: 0 4px 16px rgba(22,163,74,.35), 0 1px 4px rgba(0,0,0,.1);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:not(:disabled):active { transform: translateY(0); }
+
+    /* Ghost / secondary button */
+    .btn-ghost {
+      background: transparent;
+      color: var(--gray-600);
+      border: 1.5px solid var(--gray-200);
+    }
+
+    .btn-ghost:not(:disabled):hover {
+      background: var(--gray-100);
+      border-color: var(--gray-300);
+      color: var(--gray-800);
+    }
+
+    /* Download button */
+    .btn-download {
+      background: var(--gray-800);
+      color: var(--white);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-download:not(:disabled):hover {
+      background: var(--gray-700);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* Spinner inside button */
+    .spinner {
+      width: 15px; height: 15px;
+      border: 2px solid rgba(255,255,255,.35);
+      border-top-color: var(--white);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+
+    .btn.loading .spinner { display: block; }
+    .btn.loading .btn-label { opacity: .75; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ============================================================
+       PROGRESS
+    ============================================================ */
+    .progress-section {
+      display: none;
+      padding: 24px 32px;
+    }
+
+    .progress-section.visible { display: block; animation: slide-in var(--transition-slow) ease both; }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+
+    .progress-status {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    .progress-pct {
+      font-size: 0.8rem;
+      color: var(--gray-400);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-track {
+      height: 6px;
+      background: var(--gray-100);
+      border-radius: var(--radius-pill);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--green-400), var(--green-500));
+      border-radius: var(--radius-pill);
+      transition: width 600ms cubic-bezier(.4,0,.2,1);
+      position: relative;
+    }
+
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 60px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.4));
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { transform: translateX(-60px); opacity: 0; }
+      50%  { opacity: 1; }
+      100% { transform: translateX(60px);  opacity: 0; }
+    }
+
+    .progress-steps {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .step-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      background: var(--gray-100);
+      color: var(--gray-400);
+      border: 1px solid var(--gray-200);
+      transition: all var(--transition-normal);
+    }
+
+    .step-pill.active {
+      background: var(--green-50);
+      color: var(--green-700);
+      border-color: var(--green-200);
+    }
+
+    .step-pill.done {
+      background: var(--green-500);
+      color: var(--white);
+      border-color: var(--green-500);
+    }
+
+    .step-pill .step-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .step-pill.active .step-dot { animation: pulse-dot 1s ease-in-out infinite; }
+
+    /* ============================================================
+       RESULTS — Before / After
+    ============================================================ */
+    .results-section {
+      display: none;
+    }
+
+    .results-section.visible {
+      display: block;
+      animation: slide-in var(--transition-slow) ease both;
+    }
+
+    .results-card {
+      padding: 32px;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .compare-panel {
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .compare-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--gray-100);
+      background: var(--gray-50);
+    }
+
+    .compare-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+    }
+
+    .compare-label .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--gray-400);
+    }
+
+    .compare-label.is-result .dot { background: var(--green-500); }
+    .compare-label.is-result { color: var(--green-700); }
+
+    .compare-image-wrap {
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 1 / 1;
+      background: repeating-conic-gradient(var(--gray-100) 0% 25%, var(--white) 0% 50%) 0 0 / 20px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .compare-image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Image placeholder */
+    .img-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      color: var(--gray-300);
+      font-size: 0.8rem;
+    }
+
+    .img-placeholder svg { width: 40px; height: 40px; }
+
+    /* ============================================================
+       TOAST NOTIFICATIONS
+    ============================================================ */
+    .toast-container {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+      min-width: 280px;
+      max-width: 380px;
+      box-shadow: var(--shadow-xl);
+      animation: toast-in .3s cubic-bezier(.34,1.56,.64,1) both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .toast::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      border-radius: 4px 0 0 4px;
+    }
+
+    .toast.toast-success::before { background: var(--green-500); }
+    .toast.toast-error::before   { background: var(--red-500); }
+
+    .toast-icon {
+      width: 32px; height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .toast-success .toast-icon { background: var(--green-50); color: var(--green-600); }
+    .toast-error   .toast-icon { background: var(--red-50);   color: var(--red-500); }
+    .toast-icon svg { width: 16px; height: 16px; }
+
+    .toast-body { flex: 1; min-width: 0; }
+    .toast-title { font-size: 0.875rem; font-weight: 600; color: var(--gray-800); }
+    .toast-msg   { font-size: 0.8rem;   color: var(--gray-500); margin-top: 2px; }
+
+    .toast-close {
+      background: none;
+      border: none;
+      color: var(--gray-400);
+      padding: 2px;
+      border-radius: 4px;
+      transition: color var(--transition-fast);
+      flex-shrink: 0;
+    }
+
+    .toast-close:hover { color: var(--gray-700); }
+    .toast-close svg { width: 14px; height: 14px; }
+
+    .toast.toast-out { animation: toast-out .25s ease forwards; }
+
+    @keyframes toast-in  { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes toast-out { from { transform: translateX(0);    opacity: 1; } to { transform: translateX(110%); opacity: 0; } }
+
+    /* ============================================================
+       LOADING OVERLAY
+    ============================================================ */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,.6);
+      backdrop-filter: blur(6px);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .loading-overlay.visible { display: flex; animation: fade-in var(--transition-normal) ease both; }
+
+    .overlay-spinner {
+      width: 52px; height: 52px;
+      border: 3px solid var(--green-100);
+      border-top-color: var(--green-500);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+
+    .overlay-text {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--gray-600);
+    }
+
+    /* ============================================================
+       FOOTER
+    ============================================================ */
+    .site-footer {
+      border-top: 1px solid var(--gray-200);
+      background: var(--white);
+      padding: 20px 0;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--gray-400);
+    }
+
+    .site-footer strong { color: var(--gray-600); font-weight: 600; }
+
+    /* ============================================================
+       ANIMATIONS
+    ============================================================ */
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* staggered page-load reveal */
+    .reveal { opacity: 0; transform: translateY(16px); animation: slide-in .5s ease forwards; }
+    .reveal:nth-child(1) { animation-delay: .05s; }
+    .reveal:nth-child(2) { animation-delay: .15s; }
+    .reveal:nth-child(3) { animation-delay: .25s; }
+    .reveal:nth-child(4) { animation-delay: .35s; }
+    .reveal:nth-child(5) { animation-delay: .45s; }
+
+    /* ============================================================
+       RESPONSIVE
+    ============================================================ */
+    @media (max-width: 768px) {
+      .container { padding: 0 16px; }
+      .page-hero { padding: 36px 0 28px; }
+
+      .upload-card,
+      .controls-row,
+      .results-card,
+      .progress-section { padding: 20px; }
+
+      .drop-zone { padding: 40px 20px; }
+
+      .comparison-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .header-badge { display: none; }
+      .toast-container { bottom: 16px; right: 16px; left: 16px; align-items: stretch; }
+      .toast { max-width: 100%; }
+
+      .controls-row { flex-direction: column; align-items: stretch; }
+      .btn { justify-content: center; }
+
+      .progress-steps { gap: 6px; }
+    }
+
+    @media (max-width: 480px) {
+      .hero-title { font-size: 1.6rem; }
+      .drop-title { font-size: 0.95rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       LOADING OVERLAY (shown during API call)
+  ============================================================ -->
+  <div class="loading-overlay" id="loadingOverlay" role="status" aria-live="polite">
+    <div class="overlay-spinner"></div>
+    <p class="overlay-text" id="overlayText">Processing your pattern…</p>
+  </div>
+
+  <!-- ============================================================
+       TOAST CONTAINER
+  ============================================================ -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- ============================================================
+       SITE HEADER
+  ============================================================ -->
+  <header class="site-header">
+    <div class="container">
+      <div class="header-inner">
+
+        <div class="logo-group">
+          <div class="logo-icon" aria-hidden="true">
+            <!-- Weave / grid icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </div>
+          <div class="logo-text">
+            <h1>Seamless Pattern Generator</h1>
+            <p>AI-powered textile repeat engine</p>
+          </div>
+        </div>
+
+        <span class="header-badge">Beta</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       MAIN
+  ============================================================ -->
+  <main>
+
+    <!-- Page hero -->
+    <section class="page-hero container">
+      <p class="hero-eyebrow">
+        <span></span>
+        Textile Design Studio
+        <span></span>
+      </p>
+      <h2 class="hero-title">Transform any swatch into a<br><em>perfectly seamless</em> repeat</h2>
+      <p class="hero-subtitle">Upload a textile swatch, click generate, and get a production-ready seamless tile in seconds.</p>
+    </section>
+
+    <!-- Workspace -->
+    <div class="workspace container">
+
+      <!-- 1. Upload Card -->
+      <section class="card upload-card reveal" id="uploadSection" aria-labelledby="upload-heading">
+        <div class="section-label">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor" stroke="none">1</text></svg>
+          Upload Image
+        </div>
+
+        <!-- Drop zone -->
+        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Upload textile image">
+          <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.webp" aria-label="Choose file" />
+
+          <div class="drop-icon" aria-hidden="true">
+            <!-- Upload icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+
+          <p class="drop-title"><span>Click to upload</span> or drag &amp; drop</p>
+          <p class="drop-meta">PNG, JPG, JPEG, WEBP · max 20 MB</p>
+
+          <div class="format-chips" aria-hidden="true">
+            <span class="chip">PNG</span>
+            <span class="chip">JPG</span>
+            <span class="chip">JPEG</span>
+            <span class="chip">WEBP</span>
+          </div>
+        </div>
+
+        <!-- File info bar (hidden until file chosen) -->
+        <div class="file-info-bar" id="fileInfoBar" role="status" aria-label="Uploaded file info">
+          <img id="fileThumbnail" class="file-thumb" src="" alt="Preview of uploaded file" />
+          <div class="file-details">
+            <p class="file-name" id="fileName">—</p>
+            <p class="file-meta-row" id="fileMeta">—</p>
+          </div>
+          <div class="file-check" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <button class="remove-file-btn" id="removeFileBtn" aria-label="Remove uploaded file" title="Remove file">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6"  y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- 2. Controls Row -->
+      <div class="controls-row reveal">
+        <!-- Generate button -->
+        <button class="btn btn-primary" id="generateBtn" disabled aria-label="Generate seamless pattern">
+          <span class="spinner" aria-hidden="true"></span>
+          <!-- Wand icon -->
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/>
+            <path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/>
+            <path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/>
+          </svg>
+          <span class="btn-label">Generate Seamless</span>
+        </button>
+
+        <!-- Reset button -->
+        <button class="btn btn-ghost" id="resetBtn" aria-label="Reset and start over">
+          <!-- Reset icon -->
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+          <span class="btn-label">Reset</span>
+        </button>
+      </div>
+
+      <!-- 3. Progress Section (hidden until processing) -->
+      <div class="card progress-section reveal" id="progressSection" role="status" aria-live="polite" aria-label="Processing progress">
+        <div class="section-label">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
+          Processing
+        </div>
+
+        <div class="progress-header">
+          <span class="progress-status" id="progressStatus">Starting…</span>
+          <span class="progress-pct" id="progressPct">0%</span>
+        </div>
+
+        <div class="progress-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <!-- Step pills -->
+        <div class="progress-steps" aria-hidden="true">
+          <span class="step-pill" data-step="0"><span class="step-dot"></span>Uploading image…</span>
+          <span class="step-pill" data-step="1"><span class="step-dot"></span>Generating pattern…</span>
+          <span class="step-pill" data-step="2"><span class="step-dot"></span>Finalizing output…</span>
+          <span class="step-pill" data-step="3"><span class="step-dot"></span>Complete</span>
+        </div>
+      </div>
+
+      <!-- 4. Results Section (hidden until success) -->
+      <section class="results-section reveal" id="resultsSection" aria-labelledby="results-heading">
+        <div class="card results-card">
+          <div class="section-label">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
+            Before &amp; After
+          </div>
+
+          <div class="comparison-grid">
+
+            <!-- Original panel -->
+            <div class="compare-panel">
+              <div class="compare-header">
+                <span class="compare-label">
+                  <span class="dot"></span>
+                  Original
+                </span>
+              </div>
+              <div class="compare-image-wrap">
+                <img id="originalPreview" src="" alt="Original uploaded textile image" style="display:none"/>
+                <div class="img-placeholder" id="origPlaceholder" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <span>Original image</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Result panel -->
+            <div class="compare-panel">
+              <div class="compare-header">
+                <span class="compare-label is-result">
+                  <span class="dot"></span>
+                  Seamless Output
+                </span>
+                <!-- Download button placed in header for quick access -->
+                <button class="btn btn-download" id="downloadBtn" style="display:none; font-size:.75rem; padding:6px 14px;" aria-label="Download seamless pattern">
+                  <!-- Download icon -->
+                  <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  <span class="btn-label">Download</span>
+                </button>
+              </div>
+              <div class="compare-image-wrap">
+                <img id="outputPreview" src="" alt="Generated seamless textile pattern" style="display:none"/>
+                <div class="img-placeholder" id="outPlaceholder" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/>
+                    <path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/>
+                    <path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/>
+                  </svg>
+                  <span>Seamless output</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Repeat preview panel -->
+            <div class="compare-panel">
+              <div class="compare-header">
+                <span class="compare-label is-result">
+                  <span class="dot"></span>
+                  3x3 Repeat
+                </span>
+              </div>
+              <div class="compare-image-wrap">
+                <img id="repeatPreview" src="" alt="Three by three repeat preview of generated textile tile" style="display:none"/>
+                <div class="img-placeholder" id="repeatPlaceholder" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                  <span>Repeat preview</span>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /comparison-grid -->
+        </div>
+      </section>
+
+    </div><!-- /workspace -->
+
+  </main>
+
+  <!-- ============================================================
+       FOOTER
+  ============================================================ -->
+  <footer class="site-footer">
+    <div class="container">
+      <p><strong>Seamless Pattern Generator</strong> — Powered by AI · Textile Design Studio</p>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       JAVASCRIPT
+  ============================================================ -->
+  <script>
+    /* ============================================================
+       STATE
+    ============================================================ */
+    const state = {
+      file: null,
+      outputUrl: null,
+      previewUrl: null,
+      isProcessing: false,
+    };
+
+    /* ============================================================
+       ELEMENT REFERENCES
+    ============================================================ */
+    const dropZone       = document.getElementById('dropZone');
+    const fileInput      = document.getElementById('fileInput');
+    const fileInfoBar    = document.getElementById('fileInfoBar');
+    const fileThumbnail  = document.getElementById('fileThumbnail');
+    const fileNameEl     = document.getElementById('fileName');
+    const fileMetaEl     = document.getElementById('fileMeta');
+    const removeFileBtn  = document.getElementById('removeFileBtn');
+
+    const generateBtn    = document.getElementById('generateBtn');
+    const resetBtn       = document.getElementById('resetBtn');
+
+    const progressSection = document.getElementById('progressSection');
+    const progressStatus  = document.getElementById('progressStatus');
+    const progressPct     = document.getElementById('progressPct');
+    const progressFill    = document.getElementById('progressFill');
+    const progressBar     = document.getElementById('progressBar');
+    const stepPills       = document.querySelectorAll('.step-pill');
+
+    const resultsSection  = document.getElementById('resultsSection');
+    const originalPreview = document.getElementById('originalPreview');
+    const origPlaceholder = document.getElementById('origPlaceholder');
+    const outputPreview   = document.getElementById('outputPreview');
+    const outPlaceholder  = document.getElementById('outPlaceholder');
+    const repeatPreview   = document.getElementById('repeatPreview');
+    const repeatPlaceholder = document.getElementById('repeatPlaceholder');
+    const downloadBtn     = document.getElementById('downloadBtn');
+
+    const loadingOverlay  = document.getElementById('loadingOverlay');
+    const overlayText     = document.getElementById('overlayText');
+    const toastContainer  = document.getElementById('toastContainer');
+
+    /* ============================================================
+       CONSTANTS
+    ============================================================ */
+    const MAX_SIZE_BYTES   = 20 * 1024 * 1024; // 20 MB
+    const ALLOWED_TYPES    = ['image/png', 'image/jpeg', 'image/webp'];
+    const API_HOST         = window.location.hostname || 'localhost';
+    const API_PORT         = window.SEAMLESS_API_PORT || '8021';
+    const API_ENDPOINT     = `http://${API_HOST}:${API_PORT}/generate-seamless`;
+    console.log('[SeamlessGen] API endpoint:', API_ENDPOINT);
+
+    /* Processing steps config */
+    const STEPS = [
+      { label: 'Uploading image…',           pct: 20 },
+      { label: 'Generating seamless pattern…', pct: 55 },
+      { label: 'Finalizing output…',           pct: 85 },
+      { label: 'Complete!',                    pct: 100 },
+    ];
+
+    /* ============================================================
+       UTILITY — FORMAT FILE SIZE
+    ============================================================ */
+    function formatFileSize(bytes) {
+      if (bytes < 1024)        return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    /* ============================================================
+       UTILITY — GET IMAGE DIMENSIONS
+    ============================================================ */
+    function getImageDimensions(file) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          URL.revokeObjectURL(url);
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    }
+
+    /* ============================================================
+       FILE VALIDATION
+    ============================================================ */
+    function validateFile(file) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        showToast('error', 'Unsupported Format', `Please upload a PNG, JPG, JPEG, or WEBP image.`);
+        return false;
+      }
+      if (file.size > MAX_SIZE_BYTES) {
+        showToast('error', 'File Too Large', `Maximum allowed size is 20 MB. Your file is ${formatFileSize(file.size)}.`);
+        return false;
+      }
+      return true;
+    }
+
+    /* ============================================================
+       HANDLE FILE SELECTION
+    ============================================================ */
+    async function handleFile(file) {
+      if (!file || !validateFile(file)) return;
+
+      state.file = file;
+
+      // Show thumbnail
+      const objUrl = URL.createObjectURL(file);
+      fileThumbnail.src = objUrl;
+      fileNameEl.textContent = file.name;
+
+      // Get dimensions
+      const dims = await getImageDimensions(file);
+      fileMetaEl.textContent = dims
+        ? `${dims.width} × ${dims.height} px · ${formatFileSize(file.size)}`
+        : formatFileSize(file.size);
+
+      fileInfoBar.classList.add('visible');
+
+      // Show original preview immediately in results section
+      originalPreview.src  = objUrl;
+      originalPreview.style.display = 'block';
+      origPlaceholder.style.display = 'none';
+
+      generateBtn.disabled = false;
+    }
+
+    /* ============================================================
+       REMOVE FILE
+    ============================================================ */
+    function removeFile() {
+      state.file = null;
+      fileInput.value = '';
+      fileInfoBar.classList.remove('visible');
+      fileThumbnail.src = '';
+      fileNameEl.textContent = '—';
+      fileMetaEl.textContent = '—';
+      generateBtn.disabled = true;
+
+      // Reset original preview
+      originalPreview.src   = '';
+      originalPreview.style.display = 'none';
+      origPlaceholder.style.display = 'flex';
+    }
+
+    /* ============================================================
+       DRAG AND DROP
+    ============================================================ */
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    // Keyboard accessibility for drop zone
+    dropZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+    });
+
+    removeFileBtn.addEventListener('click', removeFile);
+
+    /* ============================================================
+       PROGRESS HELPERS
+    ============================================================ */
+    function setProgress(stepIndex) {
+      const step = STEPS[stepIndex];
+
+      // Update bar
+      progressFill.style.width = step.pct + '%';
+      progressPct.textContent   = step.pct + '%';
+      progressStatus.textContent = step.label;
+      progressBar.setAttribute('aria-valuenow', step.pct);
+
+      // Update overlay text
+      overlayText.textContent = step.label;
+
+      // Update step pills
+      stepPills.forEach((pill, i) => {
+        pill.classList.remove('active', 'done');
+        if (i < stepIndex)  pill.classList.add('done');
+        if (i === stepIndex) pill.classList.add('active');
+      });
+    }
+
+    function showProgress() {
+      progressSection.classList.add('visible');
+      setProgress(0);
+    }
+
+    function hideProgress() {
+      progressSection.classList.remove('visible');
+    }
+
+    /* ============================================================
+       LOADING OVERLAY
+    ============================================================ */
+    function showOverlay(text = 'Processing…') {
+      overlayText.textContent = text;
+      loadingOverlay.classList.add('visible');
+    }
+
+    function hideOverlay() {
+      loadingOverlay.classList.remove('visible');
+    }
+
+    /* ============================================================
+       TOAST NOTIFICATIONS
+    ============================================================ */
+    function showToast(type, title, message, duration = 5000) {
+      const icons = {
+        success: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+        error:   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.setAttribute('role', 'alert');
+      toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || icons.success}</div>
+        <div class="toast-body">
+          <p class="toast-title">${title}</p>
+          ${message ? `<p class="toast-msg">${message}</p>` : ''}
+        </div>
+        <button class="toast-close" aria-label="Dismiss notification">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      `;
+
+      // Close handler
+      const dismiss = () => {
+        toast.classList.add('toast-out');
+        toast.addEventListener('animationend', () => toast.remove(), { once: true });
+      };
+
+      toast.querySelector('.toast-close').addEventListener('click', dismiss);
+      toastContainer.appendChild(toast);
+
+      // Auto-dismiss
+      if (duration > 0) setTimeout(dismiss, duration);
+    }
+
+    /* ============================================================
+       SET BUTTON LOADING STATE
+    ============================================================ */
+    function setGenerateLoading(loading) {
+      generateBtn.classList.toggle('loading', loading);
+      generateBtn.disabled = loading;
+      resetBtn.disabled    = loading;
+    }
+
+    function cacheBustUrl(url) {
+      const busted = new URL(url);
+      busted.searchParams.set('t', Date.now().toString());
+      return busted.href;
+    }
+
+    function loadImageInto(img, placeholder, url) {
+      return new Promise((resolve, reject) => {
+        img.onload = () => {
+          img.style.display = 'block';
+          placeholder.style.display = 'none';
+          resolve();
+        };
+        img.onerror = () => {
+          img.style.display = 'none';
+          placeholder.style.display = 'flex';
+          reject(new Error(`Preview image failed to load: ${url}`));
+        };
+        img.src = url;
+      });
+    }
+
+    function getGenerationMessage(result) {
+      const validation = result?.validation || {};
+      console.log('[SeamlessGen] validation:', validation);
+
+      if (validation.needs_ai_inpaint) {
+        return validation.visible_seam_reason || 'Border motifs still need AI seam inpainting for a production-ready repeat.';
+      }
+      if (validation.vertex_status === 'used') {
+        return `AI inpainting used - ${validation.method || 'Vertex AI Imagen'} - ${validation.quality_rating || 'checked'}`;
+      }
+      if (validation.vertex_status) {
+        return `Generated without AI fallback - Vertex AI status: ${validation.vertex_status}`;
+      }
+      return 'Your seamless tile is ready to download.';
+    }
+
+    /* ============================================================
+       GENERATE SEAMLESS — MAIN FLOW
+    ============================================================ */
+    generateBtn.addEventListener('click', async () => {
+      console.log('[SeamlessGen] Generate clicked', {
+        hasFile: Boolean(state.file),
+        isProcessing: state.isProcessing,
+        endpoint: API_ENDPOINT,
+      });
+
+      if (!state.file) {
+        showToast('error', 'Image Required', 'Please choose an image before generating.');
+        return;
+      }
+      if (state.isProcessing) return;
+
+      state.isProcessing = true;
+      setGenerateLoading(true);
+
+      // Reset output panel
+      outputPreview.style.display = 'none';
+      outPlaceholder.style.display = 'flex';
+      repeatPreview.style.display = 'none';
+      repeatPlaceholder.style.display = 'flex';
+      downloadBtn.style.display = 'none';
+
+      // Show results section so user can see original alongside progress
+      resultsSection.classList.add('visible');
+
+      // Show progress UI and overlay
+      showProgress();
+      showOverlay('Uploading image…');
+
+      // Scroll to progress section smoothly
+      progressSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      /* ---- Simulate step 0: Uploading ---- */
+      setProgress(0);
+      await delay(600);
+
+      /* ---- Build FormData & fetch ---- */
+      const formData = new FormData();
+      formData.append('image', state.file);
+
+      // Advance to step 1
+      setProgress(1);
+
+      let result = null;
+      let directBlobUrl = null;
+
+      try {
+        console.log('[SeamlessGen] Sending POST:', API_ENDPOINT);
+        const response = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          // Try to extract error message from response body
+          let errMsg = `Server returned ${response.status} ${response.statusText}`;
+          try {
+            const errJson = await response.json();
+            if (errJson.detail?.message || errJson.message || errJson.error) {
+              errMsg = errJson.detail?.message || errJson.message || errJson.error;
+            }
+          } catch (_) { /* ignore parse error */ }
+          throw new Error(errMsg);
+        }
+
+        // Advance to step 2 as we wait for response body
+        setProgress(2);
+        await delay(400);
+
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          result = await response.json();
+          if (!result.success || !result.tile_url || !result.preview_url) {
+            throw new Error('Server response did not include generated tile URLs.');
+          }
+        } else if (contentType.startsWith('image/')) {
+          directBlobUrl = URL.createObjectURL(await response.blob());
+        } else {
+          throw new Error(`Unsupported server response: ${contentType || 'unknown content type'}`);
+        }
+
+      } catch (err) {
+        // Handle network / API errors
+        handleError(err);
+        return;
+      }
+
+      /* ---- Success ---- */
+      setProgress(3);
+      await delay(300);
+
+      const outputUrl = directBlobUrl || cacheBustUrl(new URL(result.tile_url, API_ENDPOINT).href);
+      const previewUrl = directBlobUrl || cacheBustUrl(new URL(result.preview_url, API_ENDPOINT).href);
+      state.outputUrl = outputUrl;
+      state.previewUrl = previewUrl;
+
+      try {
+        await Promise.all([
+          loadImageInto(outputPreview, outPlaceholder, outputUrl),
+          loadImageInto(repeatPreview, repeatPlaceholder, previewUrl),
+        ]);
+      } catch (err) {
+        handleError(err);
+        return;
+      }
+
+      // Show download button
+      downloadBtn.style.display = 'inline-flex';
+
+      hideOverlay();
+      setGenerateLoading(false);
+      state.isProcessing = false;
+
+      showToast('success', 'Pattern Generated!', getGenerationMessage(result));
+
+      // Scroll to results
+      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    /* ============================================================
+       ERROR HANDLER
+    ============================================================ */
+    function handleError(err) {
+      console.error('[SeamlessGen] API error:', err);
+      hideOverlay();
+      hideProgress();
+      setGenerateLoading(false);
+      state.isProcessing = false;
+
+      const isNetworkError = err instanceof TypeError && /fetch/i.test(err.message || '');
+      const msg = isNetworkError
+        ? `Could not reach the backend at ${API_ENDPOINT}. Start backend/app.py and try again.`
+        : err.message || 'An unexpected error occurred. Please try again.';
+      showToast('error', 'Generation Failed', msg);
+    }
+
+    /* ============================================================
+       DOWNLOAD BUTTON
+    ============================================================ */
+    downloadBtn.addEventListener('click', async () => {
+      if (!state.outputUrl) return;
+
+      const response = await fetch(state.outputUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href     = url;
+      a.download = 'seamless-pattern.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Revoke after small delay to allow download to start
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+
+    /* ============================================================
+       RESET
+    ============================================================ */
+    resetBtn.addEventListener('click', resetAll);
+
+    function resetAll() {
+      if (state.isProcessing) return;
+
+      // Clear file state
+      removeFile();
+
+      // Hide progress and results
+      progressSection.classList.remove('visible');
+      resultsSection.classList.remove('visible');
+
+      // Reset output panel
+      outputPreview.src = '';
+      outputPreview.style.display = 'none';
+      outPlaceholder.style.display = 'flex';
+      repeatPreview.src = '';
+      repeatPreview.style.display = 'none';
+      repeatPlaceholder.style.display = 'flex';
+      downloadBtn.style.display = 'none';
+
+      // Reset progress bar
+      progressFill.style.width = '0%';
+      progressPct.textContent  = '0%';
+      stepPills.forEach(p => p.classList.remove('active', 'done'));
+
+      state.outputUrl = null;
+      state.previewUrl = null;
+      state.isProcessing = false;
+
+      generateBtn.disabled = true;
+    }
+
+    /* ============================================================
+       UTILITY — DELAY (Promise-based)
+    ============================================================ */
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+  </script>
+
+</body>
+</html>
