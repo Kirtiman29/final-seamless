@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -17,10 +17,24 @@ app = FastAPI(title="Seamless Backend")
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5500",
+        "http://localhost:5501",
+        "http://localhost:5502",
+        "http://127.0.0.1:5500",
+        "http://127.0.0.1:5501",
+        "http://127.0.0.1:5502",
+    ],
     allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.options("/{full_path:path}")
+async def preflight_handler(full_path: str):
+    return Response(status_code=204)
+
 
 app.include_router(seamless_router)
 app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
