@@ -41,23 +41,6 @@ async def generate_seamless(request: Request, image: UploadFile | None = File(de
     try:
         result = make_seamless(str(upload_path), str(output_path), str(preview_path))
     except Exception as exc:
-        if output_path.exists() and preview_path.exists():
-            return {
-                "success": True,
-                "warning": True,
-                "message": str(exc),
-                "original_url": f"{base_url}/uploads/{upload_path.name}",
-                "tile_url": f"{base_url}/outputs/{output_path.name}",
-                "preview_url": f"{base_url}/outputs/{preview_path.name}",
-                "validation": {
-                    "quality_rating": "needs_review",
-                    "repeat_ready": False,
-                    "needs_ai_inpaint": True,
-                    "strict_validation_status": "failed_non_blocking",
-                    "visible_seam_reason": str(exc),
-                },
-            }
-
         raise HTTPException(
             status_code=500,
             detail={
@@ -67,10 +50,27 @@ async def generate_seamless(request: Request, image: UploadFile | None = File(de
             },
         ) from exc
 
-    return {
+    validation = result["validation"]
+    if not validation.get("ai_inpaint_used"):
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "success": False,
+                "message": (
+                    "Vertex AI inpainting did not run. "
+                    f"{validation.get('vertex_failure_message') or 'Check Google Cloud authentication.'}"
+                ),
+                "code": "vertex_ai_inpainting_not_used",
+                "validation": validation,
+            },
+        )
+
+    response = {
         "success": True,
         "original_url": f"{base_url}/uploads/{upload_path.name}",
         "tile_url": f"{base_url}/outputs/{output_path.name}",
         "preview_url": f"{base_url}/outputs/{preview_path.name}",
-        "validation": result["validation"],
+        "validation": validation,
     }
+
+    return response

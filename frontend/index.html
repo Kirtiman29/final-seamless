@@ -1529,6 +1529,19 @@
     validationRow.innerHTML = '';
     validationRow.style.display = 'flex';
 
+    if (v.ai_inpaint_used) {
+      validationRow.insertAdjacentHTML('beforeend',
+        `<span class="badge success"><span class="badge-dot"></span>Vertex AI Used</span>`);
+    } else if (v.vertex_fallback_used || (v.vertex_status && v.vertex_status !== 'used')) {
+      validationRow.insertAdjacentHTML('beforeend',
+        `<span class="badge warning"><span class="badge-dot"></span>Vertex AI Failed</span>`);
+    }
+
+    if (v.method) {
+      validationRow.insertAdjacentHTML('beforeend',
+        `<span class="badge neutral"><span class="badge-dot"></span>Method: ${v.method.replace(/_/g,' ')}</span>`);
+    }
+
     const quality = v.quality_rating;
     if (quality) {
       const cls = quality === 'good' ? 'success' : quality === 'fair' ? 'warning' : 'neutral';
@@ -1580,6 +1593,14 @@
     };
   }
 
+  function responseMessage(data, response) {
+    const detail = data && data.detail;
+    if (data && data.message) return data.message;
+    if (detail && typeof detail === 'object' && detail.message) return detail.message;
+    if (typeof detail === 'string') return detail;
+    return `Generation failed (${response.status}). Check backend logs.`;
+  }
+
   generateBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
 
@@ -1603,15 +1624,20 @@
 
     try {
       const response = await fetch(API_ENDPOINT, { method: 'POST', body: formData });
-      const data = await response.json();
+      let data = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = { success: false };
+      }
 
-      finishProgress(true);
+      finishProgress(response.ok || data.success);
 
       /* Warning banner */
-      if (!data.success && !data.tile_url) {
+      if (!response.ok || (!data.success && !data.tile_url)) {
         /* Hard failure */
         msgBanner.className = 'msg-banner error visible';
-        msgText.textContent = data.message || 'Generation failed. Check backend logs.';
+        msgText.textContent = responseMessage(data, response);
         tileLoader.classList.remove('active');
         tilePlaceholder.style.display = '';
         showToast('Generation failed.', 'error');

@@ -768,22 +768,37 @@ def validateTile3x3(tile, preview_path=None, max_preview_side=1800):
     if preview_path is not None:
         cv2.imwrite(preview_path, export_preview)
 
-    left_right_error = float(np.mean(np.abs(tile[:, 0].astype(np.float32) - tile[:, -1].astype(np.float32))))
-    top_bottom_error = float(np.mean(np.abs(tile[0, :].astype(np.float32) - tile[-1, :].astype(np.float32))))
+    tile_f = tile.astype(np.float32)
+    left_right_error = float(np.mean(np.abs(tile_f[:, 0] - tile_f[:, -1])))
+    top_bottom_error = float(np.mean(np.abs(tile_f[0, :] - tile_f[-1, :])))
     h, w = tile.shape[:2]
     edge_band = int(np.clip(min(h, w) // 32, 8, 64))
-    left_band = tile[:, :edge_band].astype(np.float32)
-    right_band = np.flip(tile[:, -edge_band:].astype(np.float32), axis=1)
-    top_band = tile[:edge_band, :].astype(np.float32)
-    bottom_band = np.flip(tile[-edge_band:, :].astype(np.float32), axis=0)
-    left_right_band_error = float(np.mean(np.abs(left_band - right_band)))
-    top_bottom_band_error = float(np.mean(np.abs(top_band - bottom_band)))
+
+    vertical_local = 0.0
+    horizontal_local = 0.0
+    if w > 2:
+        vertical_local = 0.5 * (
+            float(np.mean(np.abs(tile_f[:, -1] - tile_f[:, -2]))) +
+            float(np.mean(np.abs(tile_f[:, 1] - tile_f[:, 0])))
+        )
+    if h > 2:
+        horizontal_local = 0.5 * (
+            float(np.mean(np.abs(tile_f[-1, :] - tile_f[-2, :]))) +
+            float(np.mean(np.abs(tile_f[1, :] - tile_f[0, :])))
+        )
+
+    # A repeat seam is an adjacency problem, not a mirrored-band equality problem.
+    # Penalize only boundary jumps that are stronger than the nearby natural image transitions.
+    left_right_band_error = max(0.0, left_right_error - vertical_local)
+    top_bottom_band_error = max(0.0, top_bottom_error - horizontal_local)
 
     return {
         "left_right_error": round(left_right_error, 3),
         "top_bottom_error": round(top_bottom_error, 3),
         "left_right_band_error": round(left_right_band_error, 3),
         "top_bottom_band_error": round(top_bottom_band_error, 3),
+        "left_right_local_transition": round(vertical_local, 3),
+        "top_bottom_local_transition": round(horizontal_local, 3),
         "edge_band": edge_band,
         "preview_shape": list(preview.shape),
         "exported_preview_shape": list(export_preview.shape),
@@ -838,6 +853,24 @@ def _vertex_repair_multipliers():
         if value > 0:
             values.append(value)
     return values or [1.25, 2.0, 3.0]
+
+
+def _vertex_failure_message(metadata):
+    attempts = metadata.get("vertex_attempts") or []
+    for attempt in reversed(attempts):
+        error = attempt.get("vertex_error")
+        if error:
+            return error[:240]
+
+    error = metadata.get("vertex_error")
+    if error:
+        return error[:240]
+
+    status = metadata.get("vertex_status")
+    if status and status != "used":
+        return f"Vertex AI status: {status}"
+
+    return None
 
 
 def _try_wrap_edge_harmonize(tile, metadata):
@@ -1127,32 +1160,51 @@ def make_seamless(input_path, output_path, preview_path=None):
         metadata.update(selected_metadata)
 
     # 3. Perform final validation, preview generation, and save image
-    validation = validateTile3x3(result, preview_path)
+    validation = validateTile3x3(result)
     validation.update(profile)
     validation.update(metadata)
     validation.update(_quality_flags(validation))
 
+    validation["ai_inpaint_used"] = (
+        validation.get("method") == "vertex_imagen_inpaint"
+        and validation.get("vertex_status") == "used"
+    )
+    if (
+        os.getenv("VERTEX_AI_INPAINT_ENABLED", "1") != "0"
+        and not validation["ai_inpaint_used"]
+        and validation.get("vertex_status")
+    ):
+        validation["vertex_fallback_used"] = True
+        validation["vertex_failure_message"] = _vertex_failure_message(validation)
+    else:
+        validation["vertex_fallback_used"] = False
+
     strict_repeat_required = os.getenv("STRICT_REPEAT_REQUIRED", "0") != "0"
-    if ai_required and validation["needs_ai_inpaint"] and strict_repeat_required:
+    if strict_repeat_required and not validation["repeat_ready"]:
         raise Exception(
-            "AI seam inpainting ran but the output failed strict repeat validation. "
+            "Output failed strict seamless validation. "
             f"left_right_band_error={validation['left_right_band_error']}, "
             f"top_bottom_band_error={validation['top_bottom_band_error']}, "
+            f"left_right_error={validation['left_right_error']}, "
+            f"top_bottom_error={validation['top_bottom_error']}, "
             f"vertex_status={validation.get('vertex_status', 'unknown')}, "
             f"repair_band={validation.get('repair_band', 'unknown')}, "
             f"candidate={validation.get('vertex_selected_candidate', 'unknown')}, "
             f"best_score={validation.get('vertex_best_score', 'unknown')}"
         )
 
-    if ai_required and validation["needs_ai_inpaint"]:
+    if validation["needs_ai_inpaint"]:
         validation["strict_validation_status"] = "failed_non_blocking"
         validation["visible_seam_reason"] = (
-            "AI output was generated, but strict repeat validation still detected visible seam risk. "
+            "Strict repeat validation detected visible seam risk. "
             f"left/right band error {validation['left_right_band_error']}, "
             f"top/bottom band error {validation['top_bottom_band_error']}."
         )
     else:
         validation["strict_validation_status"] = "passed"
+
+    if preview_path is not None:
+        validateTile3x3(result, preview_path)
 
     cv2.imwrite(output_path, result)
 
