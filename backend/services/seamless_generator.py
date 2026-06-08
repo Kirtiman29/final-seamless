@@ -209,7 +209,12 @@ def _vertex_edit_offset(offset, edit_mask):
     project_id = _vertex_project_id()
     location = _vertex_location()
     model = os.getenv("VERTEX_AI_IMAGE_EDIT_MODEL", "imagen-3.0-capability-001")
-    ai_image, ai_mask, scale = _resize_for_ai(offset, edit_mask)
+    
+    pad_width = 128
+    padded_offset = cv2.copyMakeBorder(offset, pad_width, pad_width, pad_width, pad_width, cv2.BORDER_WRAP)
+    padded_mask = cv2.copyMakeBorder(edit_mask, pad_width, pad_width, pad_width, pad_width, cv2.BORDER_WRAP)
+    
+    ai_image, ai_mask, scale = _resize_for_ai(padded_offset, padded_mask)
     mask_rgb = cv2.cvtColor(ai_mask, cv2.COLOR_GRAY2BGR)
 
     prompt = (
@@ -290,10 +295,12 @@ def _vertex_edit_offset(offset, edit_mask):
         if scale != 1.0:
             edited_cv = cv2.resize(
                 edited_cv,
-                (offset.shape[1], offset.shape[0]),
+                (padded_offset.shape[1], padded_offset.shape[0]),
                 interpolation=cv2.INTER_CUBIC,
             )
-        edited_cvs.append(edited_cv)
+        
+        cropped_cv = edited_cv[pad_width:-pad_width, pad_width:-pad_width]
+        edited_cvs.append(cropped_cv)
 
     return edited_cvs, {
         "ai_provider": "vertex_ai_imagen",
@@ -592,7 +599,8 @@ def lumiStats(image, reference, mask, band):
     ring_mean = float(np.mean(ring_l))
     ring_std = float(np.std(ring_l)) + 1e-6
 
-    corrected_l = (lab[:, :, 0] - seam_mean) * (ring_std / seam_std) + ring_mean
+    std_ratio = np.clip(ring_std / seam_std, 0.6, 1.6)
+    corrected_l = (lab[:, :, 0] - seam_mean) * std_ratio + ring_mean
     structure = _structure_protection(image, band)
     alpha = _seam_alpha(mask, band, feather_scale=0.8) * (1.0 - structure * 0.75) * 0.18
     lab[:, :, 0] = lab[:, :, 0] * (1.0 - alpha) + corrected_l * alpha
@@ -1004,6 +1012,8 @@ def _make_vertex_inpaint_tile(image):
     best_metadata = {}
     attempt_metadata = []
 
+    foreground = _foreground_mask(offset, band)
+
     for multiplier in _vertex_repair_multipliers():
         repair_band = int(np.clip(
             round(band * multiplier),
@@ -1011,7 +1021,9 @@ def _make_vertex_inpaint_tile(image):
             max(band + 6, min(image.shape[:2]) // 7),
         ))
         widen_kernel = np.ones((_odd_kernel(repair_band), _odd_kernel(repair_band)), dtype=np.uint8)
-        edit_mask = cv2.dilate(mask, widen_kernel, iterations=1)
+        seam_core = cv2.dilate(mask, widen_kernel, iterations=1)
+        seam_fragments = _seam_fragment_mask(seam_core, foreground, repair_band)
+        edit_mask = cv2.bitwise_or(seam_core, seam_fragments)
 
         edited_offsets, vertex_meta = _vertex_edit_offset(offset, edit_mask)
         attempt = {
@@ -1027,6 +1039,7 @@ def _make_vertex_inpaint_tile(image):
 
         for index, edited_offset in enumerate(edited_offsets):
             composited_offset = _masked_blend(offset, edited_offset, edit_mask, repair_band, strength=1.0)
+            composited_offset = lockTileBorders(composited_offset, max(1, repair_band // 8))
             candidate = reverseOffset(composited_offset)
             candidate = lockTileBorders(candidate, 1)
             candidate_validation, candidate_score = _candidate_score(candidate)
