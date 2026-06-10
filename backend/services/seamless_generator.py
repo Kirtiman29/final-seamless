@@ -1091,13 +1091,79 @@ def _make_vertex_inpaint_tile(image):
     return best_result, base_metadata
 
 
-def make_seamless(input_path, output_path, preview_path=None):
+def _make_vertex_inpaint_tile_custom(image, custom_horizontal_band, custom_vertical_band):
+    offset = offsetTransform(image)
+    h, w = offset.shape[:2]
+    center_x = w // 2
+    center_y = h // 2
+
+    # Create the exact mask specified by the user
+    edit_mask = np.zeros((h, w), dtype=np.uint8)
+    edit_mask[:, max(0, center_x - custom_vertical_band):min(w, center_x + custom_vertical_band)] = 255
+    edit_mask[max(0, center_y - custom_horizontal_band):min(h, center_y + custom_horizontal_band), :] = 255
+
+    base_metadata = {
+        "method": "vertex_imagen_inpaint_custom",
+        "custom_horizontal_band": custom_horizontal_band,
+        "custom_vertical_band": custom_vertical_band,
+    }
+
+    # Call Vertex AI inpaint exactly once with the specified mask
+    edited_offsets, vertex_meta = _vertex_edit_offset(offset, edit_mask)
+    if edited_offsets is None:
+        return None, {
+            **base_metadata,
+            **vertex_meta,
+            "vertex_status": "failed",
+        }
+
+    # Evaluate candidates and pick the best one
+    best_result = None
+    best_validation = None
+    best_score = None
+    best_metadata = {}
+
+    for index, edited_offset in enumerate(edited_offsets):
+        # Blend the result
+        # Note: we use max(custom_horizontal_band, custom_vertical_band) as the band for blending feather
+        band = max(custom_horizontal_band, custom_vertical_band)
+        composited_offset = _masked_blend(offset, edited_offset, edit_mask, band, strength=1.0)
+        composited_offset = lockTileBorders(composited_offset, max(1, band // 8))
+        candidate = reverseOffset(composited_offset)
+        candidate = lockTileBorders(candidate, 1)
+        candidate_validation, candidate_score = _candidate_score(candidate)
+        candidate_flags = _quality_flags(candidate_validation)
+
+        if best_score is None or candidate_score < best_score:
+            best_result = candidate
+            best_validation = candidate_validation
+            best_score = candidate_score
+            best_metadata = {
+                "vertex_selected_candidate": index,
+                "vertex_best_score": round(float(best_score), 3),
+                "vertex_best_left_right_band_error": candidate_validation["left_right_band_error"],
+                "vertex_best_top_bottom_band_error": candidate_validation["top_bottom_band_error"],
+                "vertex_best_quality": candidate_flags["quality_rating"],
+            }
+
+    return best_result, {
+        **base_metadata,
+        **vertex_meta,
+        **best_metadata,
+    }
+
+
+def make_seamless(input_path, output_path, preview_path=None, custom_horizontal_band=None, custom_vertical_band=None):
     image = cv2.imread(input_path)
 
     if image is None:
         raise Exception("Unable to load image")
 
-    _, profile_band = seamMaskDetection(offsetTransform(image))
+    if custom_horizontal_band is not None and custom_vertical_band is not None:
+        profile_band = max(custom_horizontal_band, custom_vertical_band)
+    else:
+        _, profile_band = seamMaskDetection(offsetTransform(image))
+        
     profile = _texture_profile(image, profile_band)
 
     result = None
@@ -1107,7 +1173,13 @@ def make_seamless(input_path, output_path, preview_path=None):
     # 1. Try Vertex AI Imagen path first if enabled and the SDK is installed.
     if os.getenv("VERTEX_AI_INPAINT_ENABLED", "1") != "0":
         try:
-            vertex_result, vertex_metadata = _make_vertex_inpaint_tile(image)
+            if custom_horizontal_band is not None and custom_vertical_band is not None:
+                vertex_result, vertex_metadata = _make_vertex_inpaint_tile_custom(
+                    image, custom_horizontal_band, custom_vertical_band
+                )
+            else:
+                vertex_result, vertex_metadata = _make_vertex_inpaint_tile(image)
+                
             if vertex_result is not None:
                 result = vertex_result
                 metadata = vertex_metadata
@@ -1179,7 +1251,7 @@ def make_seamless(input_path, output_path, preview_path=None):
     validation.update(_quality_flags(validation))
 
     validation["ai_inpaint_used"] = (
-        validation.get("method") == "vertex_imagen_inpaint"
+        validation.get("method") in ("vertex_imagen_inpaint", "vertex_imagen_inpaint_custom")
         and validation.get("vertex_status") == "used"
     )
     if (
