@@ -427,6 +427,125 @@
 
     .btn-secondary:hover { border-color: var(--border-lit); color: var(--cream-dim); }
 
+    /* ─── Mode Selector & Custom Mask Controls ───────────────────────── */
+    .mode-selector {
+      display: flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .mode-tab {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Jost', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border-radius: calc(var(--radius-md) - 4px);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .mode-tab.active {
+      background: var(--border-lit);
+      color: var(--cream);
+    }
+
+    .manual-controls {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      animation: slide-down 0.3s ease both;
+    }
+
+    .manual-controls.visible {
+      display: flex;
+    }
+
+    @keyframes slide-down {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .canvas-container {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #offsetCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--cream-dim);
+    }
+
+    .slider-val {
+      color: var(--gold);
+      font-weight: 500;
+    }
+
+    .custom-range {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 99px;
+      background: var(--border);
+      outline: none;
+      margin: 6px 0;
+    }
+
+    .custom-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--gold);
+      cursor: pointer;
+      border: 2.5px solid var(--bg-card);
+      box-shadow: 0 0 6px rgba(201,168,76,0.4);
+      transition: transform 0.1s, background 0.1s;
+    }
+
+    .custom-range::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      background: var(--gold-bright);
+    }
+
     /* ─── Progress Strip ────────────────────────────────────────────── */
     .progress-wrap {
       display: none;
@@ -1127,6 +1246,36 @@
         </div>
       </div>
 
+      <!-- Mode Selector -->
+      <div class="mode-selector" id="modeSelector" style="display: none; margin-top: 10px;">
+        <button class="mode-tab active" id="tabAuto" type="button">Auto Seam</button>
+        <button class="mode-tab" id="tabManual" type="button">Custom Seam</button>
+      </div>
+
+      <!-- Manual Seam Configuration Panel -->
+      <div class="manual-controls" id="manualControls" style="margin-top: 10px;">
+        <div class="panel-label" style="font-size: 9px; margin-bottom: 2px;">Seam Mask (Offset Preview)</div>
+        <div class="canvas-container">
+          <canvas id="offsetCanvas"></canvas>
+        </div>
+        
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Horizontal Seam Height</span>
+            <span class="slider-val" id="horizVal">60 px</span>
+          </div>
+          <input type="range" class="custom-range" id="horizBandSlider" min="5" max="150" value="30" />
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Vertical Seam Width</span>
+            <span class="slider-val" id="vertVal">60 px</span>
+          </div>
+          <input type="range" class="custom-range" id="vertBandSlider" min="5" max="150" value="30" />
+        </div>
+      </div>
+
       <!-- Progress -->
       <div class="progress-wrap" id="progressWrap">
         <div class="progress-step-label">
@@ -1277,6 +1426,7 @@
 <script>
   /* ── Config ────────────────────────────────────────────────────────── */
   const API_ENDPOINT = 'http://127.0.0.1:8021/generate-seamless';
+  const API_CUSTOM_ENDPOINT = 'http://127.0.0.1:8021/generate-seamless-custom';
 
   /* ── DOM refs ──────────────────────────────────────────────────────── */
   const fileInput       = document.getElementById('fileInput');
@@ -1309,7 +1459,20 @@
   const statusLabel     = document.getElementById('statusLabel');
   const toastContainer  = document.getElementById('toastContainer');
 
+  // Custom Mask Control refs
+  const modeSelector    = document.getElementById('modeSelector');
+  const tabAuto         = document.getElementById('tabAuto');
+  const tabManual       = document.getElementById('tabManual');
+  const manualControls  = document.getElementById('manualControls');
+  const offsetCanvas    = document.getElementById('offsetCanvas');
+  const horizBandSlider = document.getElementById('horizBandSlider');
+  const vertBandSlider  = document.getElementById('vertBandSlider');
+  const horizVal        = document.getElementById('horizVal');
+  const vertVal         = document.getElementById('vertVal');
+
   let selectedFile = null;
+  let isManualMode = false;
+  let originalImageObject = null;
 
   /* ── Steps for progress ────────────────────────────────────────────── */
   const STEPS = [
@@ -1398,14 +1561,83 @@
       originalPreview.style.display = 'block';
       originalPreview.classList.add('visible');
       dropzone.classList.add('has-image');
+
+      // Load image object for canvas offset preview
+      const img = new Image();
+      img.onload = () => {
+        originalImageObject = img;
+        drawOffsetAndMask();
+        if (isManualMode) {
+          manualControls.classList.add('visible');
+        }
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 
     generateBtn.disabled = false;
 
+    // Show mode selector
+    modeSelector.style.display = 'flex';
+
     /* Reset any previous results */
     clearResults();
   }
+
+  function drawOffsetAndMask() {
+    if (!originalImageObject) return;
+    const ctx = offsetCanvas.getContext('2d');
+    const w = originalImageObject.width;
+    const h = originalImageObject.height;
+
+    // Maintain aspect ratio in preview container
+    offsetCanvas.width = w;
+    offsetCanvas.height = h;
+
+    // Offset transform draw (4 quadrants)
+    ctx.drawImage(originalImageObject, w/2, h/2, w/2, h/2, 0, 0, w/2, h/2);
+    ctx.drawImage(originalImageObject, 0, h/2, w/2, h/2, w/2, 0, w/2, h/2);
+    ctx.drawImage(originalImageObject, w/2, 0, w/2, h/2, 0, h/2, w/2, h/2);
+    ctx.drawImage(originalImageObject, 0, 0, w/2, h/2, w/2, h/2, w/2, h/2);
+
+    const hBand = parseInt(horizBandSlider.value);
+    const vertBand = parseInt(vertBandSlider.value);
+
+    // Draw gold overlay matching Seam Studio tokens
+    ctx.fillStyle = 'rgba(201, 168, 76, 0.4)';
+    ctx.fillRect(w/2 - vertBand, 0, vertBand * 2, h);
+    ctx.fillRect(0, h/2 - hBand, w, hBand * 2);
+  }
+
+  // Sliders and Tab Listeners
+  horizBandSlider.addEventListener('input', () => {
+    horizVal.textContent = (horizBandSlider.value * 2) + ' px';
+    drawOffsetAndMask();
+  });
+
+  vertBandSlider.addEventListener('input', () => {
+    vertVal.textContent = (vertBandSlider.value * 2) + ' px';
+    drawOffsetAndMask();
+  });
+
+  tabAuto.addEventListener('click', () => {
+    if (!isManualMode) return;
+    isManualMode = false;
+    tabManual.classList.remove('active');
+    tabAuto.classList.add('active');
+    manualControls.classList.remove('visible');
+  });
+
+  tabManual.addEventListener('click', () => {
+    if (isManualMode) return;
+    isManualMode = true;
+    tabAuto.classList.remove('active');
+    tabManual.classList.add('active');
+    if (selectedFile) {
+      manualControls.classList.add('visible');
+      drawOffsetAndMask();
+    }
+  });
 
   fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
 
@@ -1438,6 +1670,7 @@
   /* ── Reset ─────────────────────────────────────────────────────────── */
   resetBtn.addEventListener('click', () => {
     selectedFile = null;
+    originalImageObject = null;
     fileInput.value = '';
     originalPreview.src = '';
     originalPreview.style.display = 'none';
@@ -1446,6 +1679,14 @@
     fileInfo.classList.remove('visible');
     generateBtn.disabled = true;
     progressWrap.classList.remove('active');
+    
+    // Hide mode selector and manual controls
+    modeSelector.style.display = 'none';
+    manualControls.classList.remove('visible');
+    tabManual.classList.remove('active');
+    tabAuto.classList.add('active');
+    isManualMode = false;
+
     clearResults();
     showToast('Workspace cleared', 'success');
   });
@@ -1622,8 +1863,15 @@
     const formData = new FormData();
     formData.append('image', selectedFile);
 
+    let url = API_ENDPOINT;
+    if (isManualMode) {
+      url = API_CUSTOM_ENDPOINT;
+      formData.append('horizontal_band', horizBandSlider.value);
+      formData.append('vertical_band', vertBandSlider.value);
+    }
+
     try {
-      const response = await fetch(API_ENDPOINT, { method: 'POST', body: formData });
+      const response = await fetch(url, { method: 'POST', body: formData });
       let data = {};
       try {
         data = await response.json();
