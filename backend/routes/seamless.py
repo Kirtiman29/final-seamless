@@ -4,12 +4,32 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
+from db import SessionLocal
+from models import SeamlessJob
 from services.seamless_generator import make_seamless
 
 router = APIRouter()
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "outputs"
+
+
+def save_job(unique_id, upload_path, output_path, preview_path, status="completed"):
+    db = SessionLocal()
+    try:
+        job = SeamlessJob(
+            uuid=unique_id,
+            original_path=str(upload_path),
+            output_path=str(output_path),
+            preview_path=str(preview_path),
+            status=status,
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+        return job
+    finally:
+        db.close()
 
 
 @router.post("/generate-seamless")
@@ -72,6 +92,8 @@ async def generate_seamless(request: Request, image: UploadFile | None = File(de
         "preview_url": f"{base_url}/outputs/{preview_path.name}",
         "validation": validation,
     }
+
+    save_job(unique_id, upload_path, output_path, preview_path, status="completed")
 
     return response
 
@@ -148,4 +170,5 @@ async def generate_seamless_custom(
         "validation": validation,
     }
 
-    return response
+    save_job(unique_id, upload_path, output_path, preview_path, status="completed")
+

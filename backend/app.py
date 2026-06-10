@@ -5,6 +5,8 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from db import engine
+from models import Base
 from routes.seamless import router as seamless_router
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -14,6 +16,8 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(title="Seamless Backend")
+
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
