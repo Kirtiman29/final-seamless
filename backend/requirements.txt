@@ -8,3 +8,4 @@ google-cloud-aiplatform
 google-cloud-vision
 python-dotenv
 sqlalchemy
+pymysql

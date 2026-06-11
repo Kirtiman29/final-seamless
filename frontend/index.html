@@ -1397,7 +1397,7 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="footer-left">Seam Studio &nbsp;·&nbsp; Seamless Pattern Engine</div>
-    <div class="footer-right" id="footerEndpoint">API: http://127.0.0.1:8021</div>
+    <div class="footer-right" id="footerEndpoint">API: connecting...</div>
   </footer>
 </div>
 
@@ -1425,8 +1425,10 @@
 <!-- ── Scripts ──────────────────────────────────────────────────────── -->
 <script>
   /* ── Config ────────────────────────────────────────────────────────── */
-  const API_ENDPOINT = 'http://127.0.0.1:8021/generate-seamless';
-  const API_CUSTOM_ENDPOINT = 'http://127.0.0.1:8021/generate-seamless-custom';
+  const API_HOST = window.location.hostname || '127.0.0.1';
+  const API_BASE_URL = `http://${API_HOST}:8022`;
+  const API_ENDPOINT = `${API_BASE_URL}/generate-seamless`;
+  const API_CUSTOM_ENDPOINT = `${API_BASE_URL}/generate-seamless-custom`;
 
   /* ── DOM refs ──────────────────────────────────────────────────────── */
   const fileInput       = document.getElementById('fileInput');
@@ -1458,6 +1460,8 @@
   const statusDot       = document.getElementById('statusDot');
   const statusLabel     = document.getElementById('statusLabel');
   const toastContainer  = document.getElementById('toastContainer');
+  const footerEndpoint  = document.getElementById('footerEndpoint');
+  footerEndpoint.textContent = `API: ${API_BASE_URL}`;
 
   // Custom Mask Control refs
   const modeSelector    = document.getElementById('modeSelector');

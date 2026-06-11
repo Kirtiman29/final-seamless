@@ -172,3 +172,5 @@ async def generate_seamless_custom(
 
     save_job(unique_id, upload_path, output_path, preview_path, status="completed")
 
+    return response
+
