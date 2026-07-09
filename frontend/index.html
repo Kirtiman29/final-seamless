@@ -1426,7 +1426,7 @@
 <script>
   /* ── Config ────────────────────────────────────────────────────────── */
   const API_HOST = window.location.hostname || '127.0.0.1';
-  const API_BASE_URL = `http://${API_HOST}:8022`;
+  const API_BASE_URL = `http://${API_HOST}:8080`;
   const API_ENDPOINT = `${API_BASE_URL}/generate-seamless`;
   const API_CUSTOM_ENDPOINT = `${API_BASE_URL}/generate-seamless-custom`;
 
@@ -1936,7 +1936,7 @@
       tileLoader.classList.remove('active');
       tilePlaceholder.style.display = '';
       msgBanner.className = 'msg-banner error visible';
-      msgText.textContent = 'Network error — could not reach the backend. Is Uvicorn running on port 8021?';
+      msgText.textContent = 'Network error — could not reach the backend. Is Uvicorn running on port 8080?';
       showToast('Network error. Check your backend.', 'error');
       console.error(err);
     } finally {

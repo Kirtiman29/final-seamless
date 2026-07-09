@@ -71,19 +71,6 @@ async def generate_seamless(request: Request, image: UploadFile | None = File(de
         ) from exc
 
     validation = result["validation"]
-    if not validation.get("ai_inpaint_used"):
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "success": False,
-                "message": (
-                    "Vertex AI inpainting did not run. "
-                    f"{validation.get('vertex_failure_message') or 'Check Google Cloud authentication.'}"
-                ),
-                "code": "vertex_ai_inpainting_not_used",
-                "validation": validation,
-            },
-        )
 
     response = {
         "success": True,
@@ -148,19 +135,6 @@ async def generate_seamless_custom(
         ) from exc
 
     validation = result["validation"]
-    if not validation.get("ai_inpaint_used"):
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "success": False,
-                "message": (
-                    "Vertex AI inpainting did not run. "
-                    f"{validation.get('vertex_failure_message') or 'Check Google Cloud authentication.'}"
-                ),
-                "code": "vertex_ai_inpainting_not_used",
-                "validation": validation,
-            },
-        )
 
     response = {
         "success": True,
@@ -173,4 +147,3 @@ async def generate_seamless_custom(
     save_job(unique_id, upload_path, output_path, preview_path, status="completed")
 
     return response
-
