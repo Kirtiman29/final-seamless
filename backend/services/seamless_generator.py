@@ -63,6 +63,14 @@ def _structure_protection(image, band):
     return np.clip(structure, 0.0, 1.0)
 
 
+def _dominant_color_ratio(image):
+    small = cv2.resize(image, (50, 50), interpolation=cv2.INTER_AREA)
+    rounded = (small // 16) * 16
+    pixels = rounded.reshape(-1, 3)
+    _, counts = np.unique(pixels, axis=0, return_counts=True)
+    return float(np.max(counts) / max(1, pixels.shape[0]))
+
+
 def _foreground_mask(image, band):
     # Downsample and quantize to find dominant background color
     small = cv2.resize(image, (50, 50), interpolation=cv2.INTER_AREA)
@@ -72,7 +80,7 @@ def _foreground_mask(image, band):
     
     # If the dominant color covers less than 15% of the image (375 pixels),
     # it's likely a dense full-bleed pattern with no clear solid background.
-    if np.max(counts) < 375:
+    if _dominant_color_ratio(image) < 0.15:
         # Fall back to original morphology-based approach
         structure = _structure_protection(image, max(3, band))
         mask = (structure > 0.14).astype(np.uint8) * 255
@@ -119,19 +127,35 @@ def _texture_profile(image, band):
     structure = _structure_protection(image, band)
     structure_density = float(np.mean(structure > 0.18))
     smooth_ratio = float(np.mean(gradient < 13.0))
+    detail_density = float(np.mean(gradient > 18.0))
     saturation_mean = float(np.mean(hsv[:, :, 1]))
     contrast = float(np.std(gray))
+    dominant_color_ratio = _dominant_color_ratio(image)
 
     is_structured = (
         structure_density > 0.04 and smooth_ratio > 0.38
     ) or (
         structure_density > 0.08 and smooth_ratio > 0.25 and saturation_mean > 35.0 and contrast > 28.0
     )
+    is_dense_full_bleed = (
+        dominant_color_ratio < 0.14
+        and detail_density > 0.28
+        and smooth_ratio < 0.42
+        and contrast > 22.0
+    ) or (
+        dominant_color_ratio < 0.18
+        and detail_density > 0.34
+        and smooth_ratio < 0.36
+        and saturation_mean > 35.0
+    )
 
     return {
         "is_structured": bool(is_structured),
+        "is_dense_full_bleed": bool(is_dense_full_bleed),
+        "dominant_color_ratio": round(dominant_color_ratio, 4),
         "structure_density": round(structure_density, 4),
         "smooth_ratio": round(smooth_ratio, 4),
+        "detail_density": round(detail_density, 4),
         "saturation_mean": round(saturation_mean, 3),
         "contrast": round(contrast, 3),
     }
@@ -220,6 +244,7 @@ def _vertex_edit_offset(offset, edit_mask):
     prompt = (
         "Repair only the masked center seam lines in this offset-transformed textile repeat tile. "
         "Continue the existing flowers, leaves, stems, fine linework, texture, and background naturally across the seam. "
+        "Do not blur, smear, stretch edge pixels, or create soft border bands. "
         "Do not create border strips, frames, mirrored bands, copied columns, text, logos, or watermarks. "
         "Preserve all unmasked areas exactly and return one edited seamless repeat tile."
     )
@@ -760,6 +785,48 @@ def lockTileBorders(tile, width):
     return np.clip(result, 0, 255).astype(np.uint8)
 
 
+def _strip_stats(region):
+    if region.size == 0:
+        return np.zeros(5, dtype=np.float32)
+
+    region_f = region.astype(np.float32)
+    gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    grad_x = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    grad_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    gradient = cv2.magnitude(grad_x, grad_y)
+
+    return np.array([
+        float(np.mean(region_f[:, :, 0])),
+        float(np.mean(region_f[:, :, 1])),
+        float(np.mean(region_f[:, :, 2])),
+        float(np.std(gray)),
+        float(np.mean(gradient)),
+    ], dtype=np.float32)
+
+
+def _edge_strip_artifact(tile, edge_band):
+    h, w = tile.shape[:2]
+    band = int(np.clip(edge_band, 4, max(4, min(h, w) // 4)))
+    if h < band * 3 or w < band * 3:
+        return 0.0
+
+    comparisons = [
+        (tile[:, :band], tile[:, band:band * 2]),
+        (tile[:, -band:], tile[:, -band * 2:-band]),
+        (tile[:band, :], tile[band:band * 2, :]),
+        (tile[-band:, :], tile[-band * 2:-band, :]),
+    ]
+
+    scores = []
+    for edge, inner in comparisons:
+        delta = np.abs(_strip_stats(edge) - _strip_stats(inner))
+        color_delta = float(np.mean(delta[:3]))
+        texture_delta = float(np.mean(delta[3:]))
+        scores.append(color_delta * 0.55 + texture_delta * 0.45)
+
+    return float(max(scores))
+
+
 def validateTile3x3(tile, preview_path=None, max_preview_side=1800):
     preview = np.tile(tile, (3, 3, 1))
     export_preview = preview
@@ -807,6 +874,7 @@ def validateTile3x3(tile, preview_path=None, max_preview_side=1800):
         "top_bottom_band_error": round(top_bottom_band_error, 3),
         "left_right_local_transition": round(vertical_local, 3),
         "top_bottom_local_transition": round(horizontal_local, 3),
+        "edge_strip_artifact_score": round(_edge_strip_artifact(tile, edge_band), 3),
         "edge_band": edge_band,
         "preview_shape": list(preview.shape),
         "exported_preview_shape": list(export_preview.shape),
@@ -822,32 +890,52 @@ def _quality_flags(validation):
         validation["left_right_error"],
         validation["top_bottom_error"],
     )
+    strip_error = float(validation.get("edge_strip_artifact_score", 0.0))
+    dense_strip_risk = bool(validation.get("is_dense_full_bleed") and strip_error > 18.0)
 
-    repeat_ready = pixel_error <= 2.5 and band_error <= 8.0
-    needs_ai_inpaint = band_error > 8.0
+    repeat_ready = pixel_error <= 2.5 and band_error <= 8.0 and not dense_strip_risk
+    needs_ai_inpaint = band_error > 8.0 or dense_strip_risk
 
     if repeat_ready:
         rating = "good"
-    elif pixel_error <= 5.0 and band_error <= 14.0:
+    elif pixel_error <= 5.0 and band_error <= 14.0 and strip_error <= 24.0:
         rating = "usable"
     else:
         rating = "needs_review"
 
     return {
         "quality_rating": rating,
-        "quality_score": round(float(pixel_error * 0.25 + band_error * 0.75), 3),
+        "quality_score": round(float(pixel_error * 0.25 + band_error * 0.75 + strip_error * 0.18), 3),
         "repeat_ready": bool(repeat_ready),
         "needs_ai_inpaint": bool(needs_ai_inpaint),
         "visible_seam_reason": (
+            "Dense pattern edge strip differs from the nearby texture; use a wider seam repair."
+            if dense_strip_risk else
             "Opposite edge bands do not naturally continue; generative seam inpainting is required."
             if needs_ai_inpaint else None
         ),
     }
 
 
-def _candidate_score(tile):
+def _candidate_score(tile, profile=None):
     validation = validateTile3x3(tile)
-    return validation, _quality_flags(validation)["quality_score"]
+    if profile:
+        validation.update(profile)
+    score = _quality_flags(validation)["quality_score"]
+    if profile and profile.get("is_dense_full_bleed"):
+        score += min(18.0, validation.get("edge_strip_artifact_score", 0.0)) * 0.18
+    return validation, score
+
+
+def _selection_summary(name, validation, score):
+    return {
+        "method": name,
+        "score": round(float(score), 3),
+        "left_right_band_error": validation["left_right_band_error"],
+        "top_bottom_band_error": validation["top_bottom_band_error"],
+        "edge_strip_artifact_score": validation["edge_strip_artifact_score"],
+        "quality_rating": _quality_flags(validation)["quality_rating"],
+    }
 
 
 def _vertex_repair_multipliers():
@@ -996,6 +1084,72 @@ def _make_structure_preserving_tile(image, cleanup_scale=1.0):
         "origin_horizontal_score": None,
     }
     return result, metadata
+
+
+def _choose_local_candidate(image, profile):
+    candidates = []
+
+    def add_candidate(name, maker):
+        try:
+            candidate, candidate_metadata = maker()
+            validation, score = _candidate_score(candidate, profile)
+            candidates.append({
+                "name": name,
+                "result": candidate,
+                "metadata": candidate_metadata,
+                "validation": validation,
+                "score": score,
+            })
+        except Exception as exc:
+            candidates.append({
+                "name": name,
+                "error": str(exc)[:160],
+            })
+
+    if profile.get("is_dense_full_bleed"):
+        add_candidate("texture_quilt", lambda: _make_texture_quilt_tile(image))
+        add_candidate("structure_preserving_aggressive", lambda: _make_structure_preserving_tile(image, cleanup_scale=1.65))
+        current_valid = [candidate for candidate in candidates if "result" in candidate]
+        if current_valid:
+            best_so_far = min(current_valid, key=lambda candidate: candidate["score"])
+            best_strip = best_so_far["validation"].get("edge_strip_artifact_score", 0.0)
+            best_flags = _quality_flags(best_so_far["validation"])
+            if best_strip > 16.0 or not best_flags["repeat_ready"]:
+                add_candidate("patch_transfer", lambda: _make_patch_transfer_tile(image))
+        else:
+            add_candidate("patch_transfer", lambda: _make_patch_transfer_tile(image))
+    elif profile["is_structured"]:
+        add_candidate("structure_preserving", lambda: _make_structure_preserving_tile(image))
+        add_candidate("structure_preserving_aggressive", lambda: _make_structure_preserving_tile(image, cleanup_scale=1.65))
+        add_candidate("texture_quilt", lambda: _make_texture_quilt_tile(image))
+    else:
+        add_candidate("texture_quilt", lambda: _make_texture_quilt_tile(image))
+
+    valid_candidates = [candidate for candidate in candidates if "result" in candidate]
+    if not valid_candidates:
+        errors = {
+            candidate["name"]: candidate.get("error", "unknown")
+            for candidate in candidates
+        }
+        raise Exception(f"Local seamless candidates failed: {errors}")
+
+    best = min(valid_candidates, key=lambda candidate: candidate["score"])
+    metadata = dict(best["metadata"])
+    metadata["local_candidate_count"] = len(valid_candidates)
+    metadata["local_candidate_scores"] = [
+        _selection_summary(candidate["name"], candidate["validation"], candidate["score"])
+        for candidate in valid_candidates
+    ]
+
+    failed = [
+        {"method": candidate["name"], "error": candidate["error"]}
+        for candidate in candidates
+        if "error" in candidate
+    ]
+    if failed:
+        metadata["local_candidate_failures"] = failed
+
+    return best["result"], metadata
 
 
 def _make_vertex_inpaint_tile(image):
@@ -1204,45 +1358,18 @@ def make_seamless(input_path, output_path, preview_path=None, custom_horizontal_
             f"Vertex AI status: {metadata.get('vertex_status', 'not_used')}. Detail: {detail}"
         )
 
-    # 2. Fall back to local algorithms if Vertex AI is disabled, not configured, or failed.
-    if result is None:
-        selected_metadata = {}
-        if profile["is_structured"]:
-            # Structure preserving algorithm
-            result, metadata_local = _make_structure_preserving_tile(image)
-            selected_metadata = metadata_local
-            
-            # Check if we should try aggressive cleanup
-            quick_validation, current_score = _candidate_score(result)
-            if max(quick_validation["left_right_band_error"], quick_validation["top_bottom_band_error"]) > 12.0:
-                aggressive_result, aggressive_metadata = _make_structure_preserving_tile(image, cleanup_scale=1.65)
-                aggressive_validation, aggressive_score = _candidate_score(aggressive_result)
-                if aggressive_score <= current_score:
-                    result = aggressive_result
-                    selected_metadata = aggressive_metadata
-                    quick_validation = aggressive_validation
-                    current_score = aggressive_score
-
-            # Floral and wallpaper-style artwork often gets visible locked-edge bands
-            # from the structure-preserving path. Keep a texture-quilt candidate and
-            # choose it when validation says the repeated band is cleaner.
-            current_band_error = max(
-                quick_validation["left_right_band_error"],
-                quick_validation["top_bottom_band_error"],
-            )
-            if current_band_error > 10.0 or current_score > 8.0:
-                texture_result, texture_metadata = _make_texture_quilt_tile(image)
-                _, texture_score = _candidate_score(texture_result)
-                if texture_score + 0.75 < current_score:
-                    result = texture_result
-                    selected_metadata = texture_metadata
-                    current_score = texture_score
-        else:
-            # Texture quilting algorithm
-            result, metadata_local = _make_texture_quilt_tile(image)
-            selected_metadata = metadata_local
-
-        metadata.update(selected_metadata)
+    # 2. Fall back to local algorithms only if Vertex AI is disabled, not configured,
+    # or failed. Local dense candidates can score well while creating blurry border
+    # bands, so they should not override a returned AI edit.
+    should_compare_local = (
+        custom_horizontal_band is None
+        and custom_vertical_band is None
+        and result is None
+    )
+    if should_compare_local:
+        local_result, local_metadata = _choose_local_candidate(image, profile)
+        result = local_result
+        metadata.update(local_metadata)
 
     # 3. Perform final validation, preview generation, and save image
     validation = validateTile3x3(result)
